@@ -1,0 +1,582 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Guess Who?</title>
+<meta name="theme-color" content="#14122b">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Guess Who?">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@600;700&family=Barlow:wght@500;600&display=swap">
+<style>
+html{background:#14122b}
+
+/* Guess Who? - styles.
+   Layout: one-screen pass-and-play app. Midnight indigo room with dotted wallpaper, scoreboard header, 4x6 card board, screen rotates toward whoever's turn it is. Single committed dark look. */
+:root{
+  --bg:#14122b; --panel:#25214d; --line:#4a4590;
+  --chalk:#f6f3ff; --dim:#aba7d8; --yellow:#ffd23f; --red:#ff5a4f; --ink:#0b0a1c;
+  --p1:#4be3a0; --p2:#ff9a47;
+  --display:'Anton','Impact',sans-serif; --label:'Barlow Condensed','Arial Narrow',sans-serif; --body:'Barlow',system-ui,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{touch-action:manipulation;overscroll-behavior:none}
+body{margin:0;background-color:var(--bg);
+  background-image:radial-gradient(circle at 1px 1px,rgba(255,255,255,.07) 1.2px,transparent 0);background-size:22px 22px;
+  color:var(--chalk);font-family:var(--body);font-size:16px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  overflow:hidden;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+button,input{font:inherit;color:inherit}
+.screen{height:100%;display:flex;flex-direction:column;gap:10px;padding-block:10px;overflow-y:auto;max-width:560px;margin-inline:auto}
+.screen>*{flex-shrink:0}
+h1,h2{font-family:var(--display);font-weight:400;text-transform:uppercase;margin:0;line-height:1;text-wrap:balance}
+.btn{border:2px solid var(--line);background:transparent;border-radius:12px;min-height:48px;padding:0 16px;font-family:var(--label);font-weight:700;font-size:19px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer}
+.btn:active{transform:translateY(1px)}
+.btn:focus-visible,.card:focus-visible,.chip:focus-visible,input:focus-visible{outline:3px solid var(--yellow);outline-offset:2px}
+.btn.primary{background:var(--yellow);border-color:var(--yellow);color:var(--ink)}
+.btn.danger{background:var(--red);border-color:var(--red);color:var(--ink)}
+.btn:disabled{opacity:.4;cursor:default}
+.eyebrow{font-family:var(--label);font-weight:700;letter-spacing:.14em;text-transform:uppercase;font-size:14px;color:var(--dim)}
+
+/* Home */
+#home{justify-content:center;gap:18px}
+.logo{display:flex;flex-direction:column;gap:8px}
+.logo h1{font-size:clamp(58px,19vw,96px);color:var(--chalk)}
+.logo h1 span{color:var(--yellow)}
+.logo-img{width:88px;height:88px;display:block;border-radius:20px}
+.names{display:grid;gap:10px}
+.field{display:flex;align-items:center;gap:12px;background:var(--panel);border-radius:14px;padding:6px 14px;border-left:6px solid var(--c)}
+.field label{font-family:var(--label);font-weight:700;letter-spacing:.1em;text-transform:uppercase;font-size:14px;color:var(--dim);width:34px}
+.field input{flex:1;min-width:0;background:transparent;border:0;height:44px;font-size:20px;font-weight:600;outline-offset:0;user-select:text;-webkit-user-select:text}
+.rules{margin:0;padding:0;list-style:none;display:grid;gap:8px;color:var(--dim);font-size:15px;line-height:1.35}
+.rules li{display:flex;gap:10px}
+.rules b{font-family:var(--label);color:var(--yellow);font-size:17px;width:18px}
+#tally{display:flex;justify-content:center;gap:14px;font-family:var(--display);font-size:30px;align-items:baseline}
+#tally small{font-family:var(--label);font-size:14px;letter-spacing:.12em;color:var(--dim)}
+
+/* Pass */
+#pass{justify-content:center;align-items:flex-start;gap:16px;text-align:left}
+#pass h2{font-size:clamp(46px,15vw,76px);color:var(--me,var(--chalk))}
+#pass p{margin:0;font-size:18px;color:var(--dim);line-height:1.4;max-width:30ch}
+.shield{width:78px;height:78px;border-radius:50%;background:var(--panel);display:grid;place-items:center;border:3px dashed var(--line)}
+.shield svg{width:40px;height:40px}
+
+/* Board */
+.board{display:grid;grid-template-columns:repeat(4,1fr);grid-auto-rows:minmax(76px,1fr);gap:6px;flex:1;min-height:calc(6*80px + 5*6px)}
+.card{position:relative;border:0;padding:0;background:none;perspective:700px;cursor:pointer;min-width:0}
+.inner{position:absolute;inset:0;transform-style:preserve-3d;transition:transform .45s cubic-bezier(.4,.1,.2,1)}
+.face{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:10px;overflow:hidden}
+.front{background:#efeaff;display:flex;flex-direction:column}
+.front svg{flex:1;min-height:0;width:100%;display:block}
+.nm{background:var(--ink);color:var(--chalk);font:700 12px/1.5 var(--label);letter-spacing:.05em;text-transform:uppercase;text-align:center;padding:1px 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.back{transform:rotateY(180deg);background:repeating-linear-gradient(135deg,#221e4a 0 8px,#2a2559 8px 16px);border:2px solid var(--line);display:grid;place-items:center}
+.back b{font-family:var(--display);font-weight:400;font-size:26px;color:var(--yellow);opacity:.55}
+.card.down .inner{transform:rotateY(180deg)}
+.card.sel .front{box-shadow:0 0 0 3px var(--yellow)}
+.guessing .card:not(.down) .front{box-shadow:0 0 0 3px var(--red);animation:pulse 1.1s ease-in-out infinite}
+@keyframes pulse{50%{box-shadow:0 0 0 5px rgba(255,90,79,.45)}}
+
+/* Game */
+.score{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;background:var(--ink);border-radius:14px;padding:8px 12px}
+.sp{display:flex;align-items:baseline;gap:8px;min-width:0;opacity:.45}
+.sp.on{opacity:1}
+.sp:last-child{justify-content:flex-end;flex-direction:row-reverse}
+.sp .n{font-family:var(--label);font-weight:700;font-size:16px;letter-spacing:.06em;text-transform:uppercase;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--c)}
+.sp .s{font-family:var(--display);font-size:28px}
+.mid{font-family:var(--label);font-weight:700;color:var(--dim);font-size:13px;letter-spacing:.1em;text-align:center;line-height:1.2}
+.brief{display:flex;justify-content:space-between;gap:10px;align-items:center;font-family:var(--label);font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-size:15px}
+.brief .t{color:var(--me)}
+.brief .clue{color:var(--dim);text-align:right;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.brief .clue b{color:var(--chalk)}
+.bar{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pulse{animation:glow 1.3s ease-in-out infinite}
+@keyframes glow{50%{box-shadow:0 0 0 6px rgba(255,210,63,.35)}}
+body.flip #app,body.flip .overlay{transform:rotate(180deg)}
+#app,.overlay{transition:transform .5s cubic-bezier(.4,.1,.2,1)}
+[data-p="0"]{--me:var(--p1)}
+[data-p="1"]{--me:var(--p2)}
+
+/* Overlays */
+.overlay{position:fixed;inset:0;z-index:20;background:rgba(8,6,22,.84);display:flex;align-items:flex-end;justify-content:center;
+  padding:env(safe-area-inset-top,0px) max(0px,env(safe-area-inset-right,0px)) env(safe-area-inset-bottom,0px) max(0px,env(safe-area-inset-left,0px))}
+.overlay.solid{background:var(--bg)}
+.overlay.center{align-items:center;padding-inline:max(16px,env(safe-area-inset-left,0px))}
+.sheet{width:100%;max-width:560px;background:var(--panel);border-radius:20px 20px 0 0;padding:16px max(16px,env(safe-area-inset-left,0px)) 18px;max-height:82%;overflow-y:auto;display:flex;flex-direction:column;gap:12px;border-top:3px solid var(--me,var(--line))}
+.overlay.center .sheet{border-radius:20px;max-height:92%;align-items:center;text-align:center;border:3px solid var(--me,var(--line))}
+.sheet h2{font-size:28px}
+.cat{display:grid;gap:8px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:2px solid var(--line);background:var(--bg);border-radius:999px;min-height:44px;padding:0 14px;font-family:var(--label);font-weight:700;font-size:17px;letter-spacing:.03em;cursor:pointer;text-align:left}
+.chip:active{background:var(--ink)}
+.chip.used{opacity:.55;cursor:default}
+.chip.used.yes{border-color:var(--p1)}
+.chip.used.no{border-color:var(--red)}
+.chip em{font-style:normal;margin-left:6px;font-size:14px}
+.verdict{font-family:var(--display);font-size:clamp(90px,34vw,150px);line-height:.95;text-transform:uppercase}
+.verdict.yes{color:var(--p1)}
+.verdict.no{color:var(--red)}
+.qtext{font-size:19px;font-weight:600;line-height:1.3;text-wrap:balance}
+.col{display:grid;gap:8px;width:100%}
+.big-card{width:min(46vw,190px);aspect-ratio:3/4;position:relative}
+.big-card .nm{font-size:17px}
+
+/* Result */
+#result{justify-content:center;align-items:center;text-align:center;gap:14px}
+#result h2{font-size:clamp(44px,14vw,70px);color:var(--me)}
+#result p{margin:0;color:var(--dim);font-size:17px;max-width:30ch;line-height:1.4}
+.confetti{position:fixed;top:-20px;width:9px;height:14px;z-index:30;pointer-events:none;animation:fall linear forwards}
+@keyframes fall{to{transform:translateY(110vh) rotate(720deg)}}
+@media (prefers-reduced-motion:reduce){.inner,#app,.overlay{transition:none}.pulse,.guessing .card .front{animation:none}.confetti{display:none}}
+
+</style>
+</head>
+<body>
+<main id="app" style="height:100%">
+
+<!-- HOME -->
+<section class="screen" id="home">
+  <div class="logo">
+    <img class="logo-img" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIiByb2xlPSJpbWciIGFyaWEtbGFiZWw9Ikd1ZXNzIFdobz8gbG9nbyI+CiAgPGRlZnM+PGNsaXBQYXRoIGlkPSJkaXNjIj48Y2lyY2xlIGN4PSIyNTYiIGN5PSIyNTYiIHI9IjE4OCIvPjwvY2xpcFBhdGg+PC9kZWZzPgogIDxyZWN0IHdpZHRoPSI1MTIiIGhlaWdodD0iNTEyIiByeD0iMTEyIiBmaWxsPSIjMTQxMjJiIi8+CiAgPGNpcmNsZSBjeD0iMjU2IiBjeT0iMjU2IiByPSIyMTIiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzRhNDU5MCIgc3Ryb2tlLXdpZHRoPSI2Ii8+CiAgPGNpcmNsZSBjeD0iMjU2IiBjeT0iMjU2IiByPSIxODgiIGZpbGw9IiNmZmQyM2YiLz4KICA8ZyBjbGlwLXBhdGg9InVybCgjZGlzYykiIGZpbGw9IiMxNDEyMmIiPgogICAgPGNpcmNsZSBjeD0iMjU2IiBjeT0iMjE0IiByPSI4MCIvPgogICAgPHBhdGggZD0iTTcwIDQ2MFE4NCAzMjIgMjU2IDMxMlE0MjggMzIyIDQ0MiA0NjBaIi8+CiAgPC9nPgogIDxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDI1NiAyMTQpIiBmaWxsPSJub25lIiBzdHJva2U9IiNmZmQyM2YiIHN0cm9rZS13aWR0aD0iMTkiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+CiAgICA8cGF0aCBkPSJNLTMwIC0yNEMtMzAgLTYyIDMyIC02MiAzMiAtMjZDMzIgMCAwIDYgMCAyOCIvPgogIDwvZz4KICA8Y2lyY2xlIGN4PSIyNTYiIGN5PSIyNjQiIHI9IjExIiBmaWxsPSIjZmZkMjNmIi8+Cjwvc3ZnPgo=" alt="">
+    <h1>Guess<br><span>Who?</span></h1>
+    <div class="eyebrow">Two players · one phone · 24 characters</div>
+  </div>
+  <div id="tally" hidden></div>
+  <div class="names">
+    <div class="field" style="--c:var(--p1)"><label for="n0">P1</label><input id="n0" maxlength="14" value="Player 1" autocomplete="off"></div>
+    <div class="field" style="--c:var(--p2)"><label for="n1">P2</label><input id="n1" maxlength="14" value="Player 2" autocomplete="off"></div>
+  </div>
+  <ul class="rules">
+    <li><b>1</b><span>Each player secretly picks one character. Pass the phone only for this part.</span></li>
+    <li><b>2</b><span>Put the phone flat between you. On your turn, ask a yes/no question. The screen spins to your rival, who taps Yes or No from memory.</span></li>
+    <li><b>3</b><span>Flip down the faces that are out. Ready? Guess now. Right and you win the round. Wrong and your rival wins.</span></li>
+  </ul>
+  <button class="btn primary" id="kick" style="min-height:56px;font-size:22px">Start game</button>
+</section>
+
+<!-- PASS -->
+<section class="screen" id="pass" hidden data-p="0">
+  <div class="shield"><svg viewBox="0 0 24 24" fill="none" stroke="#aba7d8" stroke-width="2" stroke-linecap="round"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><path d="M4 20L20 4"/></svg></div>
+  <div class="eyebrow">Pass the phone to</div>
+  <h2 id="pass-name">Player</h2>
+  <p id="pass-msg"></p>
+  <button class="btn primary" id="pass-go" style="min-height:56px;font-size:22px;align-self:stretch">Ready</button>
+</section>
+
+<!-- PICK -->
+<section class="screen" id="pick" hidden data-p="0">
+  <div>
+    <div class="eyebrow">Secret pick</div>
+    <h2 id="pick-title" style="font-size:30px;margin-top:4px;color:var(--me)">Pick your character</h2>
+  </div>
+  <div class="board" id="pick-board"></div>
+  <button class="btn primary" id="lock" disabled>Lock in my character</button>
+</section>
+
+<!-- GAME -->
+<section class="screen" id="game" hidden data-p="0">
+  <div class="score">
+    <div class="sp" id="sp0" style="--c:var(--p1)"><span class="n" id="sn0"></span><span class="s" id="ss0">0</span></div>
+    <div class="mid">ROUND<br>SCORE</div>
+    <div class="sp" id="sp1" style="--c:var(--p2)"><span class="n" id="sn1"></span><span class="s" id="ss1">0</span></div>
+  </div>
+  <div class="brief"><span class="t" id="turn-label"></span><span class="clue" id="clue"></span></div>
+  <div class="board" id="board"></div>
+  <div class="bar">
+    <button class="btn primary" id="ask">Ask a question</button>
+    <button class="btn danger" id="guess">Guess now</button>
+    <button class="btn" id="mine">My pick</button>
+    <button class="btn" id="end">End turn</button>
+  </div>
+</section>
+
+<!-- RESULT -->
+<section class="screen" id="result" hidden data-p="0">
+  <div class="eyebrow" id="res-eyebrow">Round over</div>
+  <h2 id="res-title">Winner</h2>
+  <div class="big-card" id="res-card"></div>
+  <p id="res-text"></p>
+  <div class="col" style="max-width:360px">
+    <button class="btn primary" id="again" style="min-height:54px">Play another round</button>
+    <button class="btn" id="home-btn">Change names</button>
+  </div>
+</section>
+</main>
+
+<!-- Overlays -->
+<div class="overlay" id="ov-ask" hidden data-p="0"><div class="sheet">
+  <h2>Ask a question</h2>
+  <div class="eyebrow">One question per turn. Your rival answers on screen.</div>
+  <div id="qlist" style="display:grid;gap:14px"></div>
+  <button class="btn" id="ask-close">Cancel</button>
+</div></div>
+
+<div class="overlay center solid" id="ov-reply" hidden data-p="0"><div class="sheet" style="background:transparent;border:0;gap:18px">
+  <div class="eyebrow" id="rp-from"></div>
+  <div class="qtext" id="rp-q" style="font-size:30px;font-family:var(--label);text-transform:uppercase;letter-spacing:.03em;line-height:1.1"></div>
+  <div class="col" style="grid-template-columns:1fr 1fr">
+    <button class="btn" id="rp-yes" style="border-color:var(--p1);color:var(--p1);min-height:84px;font-size:34px">Yes</button>
+    <button class="btn" id="rp-no" style="border-color:var(--red);color:var(--red);min-height:84px;font-size:34px">No</button>
+  </div>
+</div></div>
+
+<div class="overlay center" id="ov-answer" hidden data-p="0"><div class="sheet">
+  <div class="eyebrow" id="ans-from">The answer is</div>
+  <div class="verdict" id="ans-v">Yes</div>
+  <div class="qtext" id="ans-q"></div>
+  <button class="btn primary" id="ans-keep" style="width:100%">Got it</button>
+</div></div>
+
+<div class="overlay center" id="ov-confirm" hidden data-p="0"><div class="sheet">
+  <div class="eyebrow">Final guess</div>
+  <div class="big-card" id="cf-card"></div>
+  <div class="qtext">Is it <b id="cf-name"></b>? A wrong guess gives your rival the round.</div>
+  <div class="col">
+    <button class="btn danger" id="cf-yes">Lock it in</button>
+    <button class="btn" id="cf-no">Not yet</button>
+  </div>
+</div></div>
+
+<div class="overlay center" id="ov-mine" hidden data-p="0"><div class="sheet">
+  <div class="eyebrow">Your secret character</div>
+  <div class="big-card" id="mine-card"></div>
+  <button class="btn primary" id="mine-close" style="width:100%">Hide it</button>
+</div></div>
+
+
+<script>
+(function(){
+var $=function(s){return document.querySelector(s)};
+/* skin: light tan brown dark. hair: black brown blond ginger grey pink blue. style: short long curly bun ponytail.
+   hat: ''|cap|beanie|cowboy|chef|tophat (colour hc). job: food outdoor sci art law other */
+var P=[
+ /* Original characters */
+ {n:'Chef Marco',s:'Marco',w:0,skin:'light',hair:'black',style:'short',beard:0,stache:1,glasses:0,hat:'chef',hc:'white',ear:0,tie:0,top:'white',job:'food'},
+ {n:'Dr. Priya',s:'Priya',w:1,skin:'brown',hair:'black',style:'long',beard:0,stache:0,glasses:1,hat:'',hc:'',ear:0,tie:0,top:'teal',job:'sci'},
+ {n:'Grandma Rose',s:'Rose',w:1,skin:'light',hair:'grey',style:'bun',beard:0,stache:0,glasses:1,hat:'',hc:'',ear:1,tie:0,top:'pink',job:'art'},
+ {n:'Skater Jay',s:'Jay',w:0,skin:'brown',hair:'black',style:'curly',beard:0,stache:0,glasses:0,hat:'cap',hc:'blue',ear:0,tie:0,top:'green',job:'outdoor'},
+ {n:'Professor Quill',s:'Quill',w:0,skin:'light',hair:'grey',style:'short',beard:1,stache:1,glasses:1,hat:'',hc:'',ear:0,tie:1,top:'brown',job:'sci'},
+ {n:'Pilot Ana',s:'Ana',w:1,skin:'tan',hair:'brown',style:'ponytail',beard:0,stache:0,glasses:0,hat:'cap',hc:'blue',ear:0,tie:0,top:'blue',job:'outdoor'},
+ {n:'DJ Neon',s:'Neon',w:1,skin:'light',hair:'pink',style:'short',beard:0,stache:0,glasses:1,hat:'',hc:'',ear:1,tie:0,top:'purple',job:'art'},
+ {n:'Artist Luz',s:'Luz',w:1,skin:'tan',hair:'black',style:'curly',beard:0,stache:0,glasses:0,hat:'',hc:'',ear:1,tie:0,top:'yellow',job:'art'},
+ {n:'Baker Mei',s:'Mei',w:1,skin:'light',hair:'black',style:'bun',beard:0,stache:0,glasses:0,hat:'beanie',hc:'red',ear:0,tie:0,top:'white',job:'food'},
+ {n:'Ranger Skye',s:'Skye',w:1,skin:'light',hair:'blond',style:'long',beard:0,stache:0,glasses:0,hat:'beanie',hc:'orange',ear:0,tie:0,top:'green',job:'outdoor'},
+ {n:'Mechanic Sam',s:'Sam',w:1,skin:'brown',hair:'black',style:'ponytail',beard:0,stache:0,glasses:0,hat:'',hc:'',ear:0,tie:0,top:'blue',job:'other'},
+ {n:'Teacher Tolu',s:'Tolu',w:1,skin:'dark',hair:'black',style:'curly',beard:0,stache:0,glasses:1,hat:'',hc:'',ear:1,tie:0,top:'yellow',job:'other'},
+ {n:'Singer Lola',s:'Lola',w:1,skin:'tan',hair:'blond',style:'long',beard:0,stache:0,glasses:0,hat:'',hc:'',ear:1,tie:0,top:'red',job:'art'},
+ {n:'Scientist Yuki',s:'Yuki',w:1,skin:'light',hair:'black',style:'short',beard:0,stache:0,glasses:1,hat:'',hc:'',ear:0,tie:0,top:'white',job:'sci'},
+ /* Custom characters. Edit these lines to change how they look.
+    stache/beard: 0 none, 1 full, 2 little. glasses: 0 none, 1 glasses, 2 sunglasses. age: 'baby' | 'kid' | omit for adult. */
+ {n:'Afnan',s:'Afnan',w:0,skin:'tan',hair:'black',style:'long',beard:0,stache:2,glasses:1,hat:'',hc:'',ear:0,tie:0,top:'green',job:'other',sleepy:1},
+ {n:'Arish',s:'Arish',w:0,skin:'tan',hair:'black',style:'long',beard:0,stache:2,glasses:0,hat:'cap',hc:'red',ear:0,tie:0,top:'blue',job:'other'},
+ {n:'Anusha',s:'Anusha',w:1,skin:'tan',hair:'black',style:'long',beard:0,stache:0,glasses:0,hat:'',hc:'',ear:0,tie:0,top:'purple',job:'other',flower:1},
+ {n:'Rayyan',s:'Rayyan',w:0,skin:'tan',hair:'black',style:'short',beard:2,stache:2,glasses:1,hat:'',hc:'',ear:0,tie:0,top:'black',job:'other',rich:1},
+ {n:'Inshal',s:'Inshal',w:0,skin:'tan',hair:'black',style:'short',beard:0,stache:0,glasses:2,hat:'',hc:'',ear:0,tie:0,top:'teal',job:'other'},
+ {n:'Ghani',s:'Ghani',w:0,skin:'tan',hair:'black',style:'short',beard:0,stache:0,glasses:0,hat:'',hc:'',ear:0,tie:0,top:'orange',job:'none',age:'kid'},
+ {n:'Zaviyan',s:'Zaviyan',w:0,skin:'tan',hair:'black',style:'tuft',beard:0,stache:0,glasses:0,hat:'',hc:'',ear:0,tie:0,top:'blue',job:'none',age:'baby',pac:1},
+ {n:'Zee',s:'Zee',w:0,skin:'tan',hair:'black',style:'tuft',beard:0,stache:0,glasses:0,hat:'beanie',hc:'yellow',ear:0,tie:0,top:'green',job:'none',age:'baby'},
+ {n:'Saif Bhai',s:'Saif Bhai',w:0,skin:'brown',hair:'black',style:'short',beard:1,stache:1,glasses:0,hat:'',hc:'',ear:0,tie:0,top:'yellow',job:'other',funny:1},
+ {n:'Sana Bhabhi',s:'Sana',w:1,skin:'tan',hair:'none',style:'hijab',beard:0,stache:0,glasses:0,hat:'',hc:'',ear:0,tie:0,top:'white',job:'other',hj:'blue'}
+];
+var SKIN={light:'#f2cfae',tan:'#d9a377',brown:'#a8714b',dark:'#6b422d'};
+var HAIR={black:'#1c1512',brown:'#4a2f20',blond:'#e3bb52',ginger:'#b5532a',grey:'#b9bdc6',pink:'#ff6fb1',blue:'#4a7bff'};
+var SHIRT={red:'#e5484d',orange:'#f08a24',yellow:'#f5c518',green:'#2fa66a',teal:'#1fa3a8',blue:'#3b6fe0',purple:'#8a5cd6',pink:'#ee6fa8',white:'#f0f0f0',black:'#2b2b33',brown:'#8a5a3b'};
+var WARM=['red','orange','yellow','pink'],COOL=['green','teal','blue','purple'];
+
+var Q=[
+ {cat:'Face',id:'gl',t:'Wears glasses?',f:function(p){return p.glasses===1}},
+ {cat:'Face',id:'mo',t:'Has a moustache?',f:function(p){return !!p.stache}},
+ {cat:'Face',id:'ea',t:'Wears an earring?',f:function(p){return !!p.ear}},
+ {cat:'Face',id:'dk',t:'Has dark skin?',f:function(p){return p.skin==='brown'||p.skin==='dark'}},
+ {cat:'Hair and hats',id:'ht',t:'Wears a hat or cap?',f:function(p){return !!p.hat}},
+ {cat:'Hair and hats',id:'lg',t:'Has long hair you can see?',f:function(p){return p.style==='long'||p.style==='ponytail'}},
+ {cat:'Hair and hats',id:'bk',t:'Has black hair you can see?',f:function(p){return p.hair==='black'&&p.style!=='tuft'}},
+ {cat:'Clothes',id:'wm',t:'Wears a warm colour (red, orange, yellow, pink)?',f:function(p){return WARM.indexOf(p.top)>=0}},
+ {cat:'Clothes',id:'cc',t:'Wears blue, green, teal or purple?',f:function(p){return COOL.indexOf(p.top)>=0}},
+ {cat:'Clothes',id:'bw',t:'Wears black, white or brown?',f:function(p){return ['black','white','brown'].indexOf(p.top)>=0}},
+ {cat:'Who they are',id:'wo',t:'Is a woman or girl?',f:function(p){return !!p.w}},
+ {cat:'Who they are',id:'am',t:'Name on the card starts A to M?',f:function(p){return p.s.charAt(0).toUpperCase()<='M'}}
+];
+
+function avatar(p,i){
+  var sk=SKIN[p.skin],hr=HAIR[p.hair]||'#222',top=SHIRT[p.top],s='',E='#1b1b1b';
+  var k=p.age==='baby'?0.6:(p.age==='kid'?0.8:1),hij=p.style==='hijab',small=!!p.age;
+  s+='<svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMax slice" aria-hidden="true">';
+  s+='<rect width="100" height="100" fill="hsl('+((i*47)%360)+' 70% 82%)"/>';
+  s+='<g transform="translate(50 100) scale('+k+') translate(-50 -100)">';
+  if(p.style==='long')s+='<path d="M27 44Q24 16 50 16Q76 16 73 44L77 70L64 62H36L23 70Z" fill="'+hr+'"/>';
+  if(p.style==='ponytail')s+='<path d="M62 34Q90 32 82 66Q78 52 68 48Z" fill="'+hr+'"/>';
+  if(hij)s+='<path d="M25 48Q22 12 50 12Q78 12 75 48Q77 70 68 82L32 82Q23 70 25 48Z" fill="'+SHIRT[p.hj]+'"/>';
+  s+='<path d="M8 100Q10 72 40 68H60Q90 72 92 100Z" fill="'+top+'"/>';
+  if(p.rich)s+='<path d="M42 68L50 93L58 68Z" fill="#f4f1e4"/><path d="M42 68L35 100M58 68L65 100" stroke="rgba(255,255,255,.3)" stroke-width="2"/>';
+  s+='<rect x="43" y="56" width="14" height="16" rx="4" fill="'+sk+'"/>';
+  if(!hij&&!p.rich)s+='<path d="M41 68L50 79L59 68" fill="'+sk+'" stroke="rgba(255,255,255,.75)" stroke-width="3" stroke-linejoin="round"/>';
+  if(p.tie){var tc=p.top==='red'?'#1d2a5b':'#c23b3b';s+='<path d="M47 73L53 73L55 92L50 97L45 92Z" fill="'+tc+'"/><path d="M46 70H54L53 75H47Z" fill="'+tc+'"/>'}
+  if(p.rich)s+='<path d="M41 70Q50 95 59 70" fill="none" stroke="#ffcf3f" stroke-width="3"/><circle cx="50" cy="91" r="4.2" fill="#ffcf3f" stroke="#c99a00" stroke-width="1"/>';
+  if(hij)s+='<path d="M22 72Q50 90 78 72L92 100H8Z" fill="'+SHIRT[p.hj]+'"/><path d="M40 78Q50 84 60 78" stroke="rgba(0,0,0,.15)" stroke-width="2" fill="none"/>';
+  if(!hij)s+='<ellipse cx="31" cy="44" rx="3.5" ry="5" fill="'+sk+'"/><ellipse cx="69" cy="44" rx="3.5" ry="5" fill="'+sk+'"/>';
+  if(p.ear)s+='<circle cx="29" cy="51" r="2.4" fill="#ffd23f" stroke="#b88a00" stroke-width=".8"/><circle cx="71" cy="51" r="2.4" fill="#ffd23f" stroke="#b88a00" stroke-width=".8"/>';
+  s+='<ellipse cx="50" cy="42" rx="19" ry="21" fill="'+sk+'"/>';
+  if(hij)s+='<ellipse cx="50" cy="42" rx="20" ry="22" fill="none" stroke="'+SHIRT[p.hj]+'" stroke-width="4"/>';
+  if(small||p.funny)s+='<circle cx="36" cy="51" r="4" fill="#ff6f86" opacity=".38"/><circle cx="64" cy="51" r="4" fill="#ff6f86" opacity=".38"/>';
+  if(['curly','tuft','hijab'].indexOf(p.style)<0)s+='<path d="M30 42Q28 19 50 19Q72 19 70 42Q66 31 50 31Q34 31 30 42Z" fill="'+hr+'"/>';
+  if(p.style==='bun')s+='<circle cx="50" cy="14" r="8" fill="'+hr+'"/>';
+  if(p.style==='tuft'&&!p.hat)s+='<path d="M50 21Q41 8 52 9Q61 10 55 18" fill="none" stroke="'+hr+'" stroke-width="3.5" stroke-linecap="round"/>';
+  if(p.style==='curly'){var c=[[34,31],[42,24],[50,22],[58,24],[66,31],[31,40],[69,40]];for(var j=0;j<c.length;j++)s+='<circle cx="'+c[j][0]+'" cy="'+c[j][1]+'" r="'+(j>4?5.5:8)+'" fill="'+hr+'"/>'}
+  if(p.hat){
+    var hc=SHIRT[p.hc]||'#888',band='rgba(0,0,0,.28)';
+    if(p.hat==='cap')s+='<path d="M29 31Q29 13 50 13Q71 13 71 31Z" fill="'+hc+'"/><path d="M27 31H68Q79 31 81 36H27Z" fill="'+hc+'"/><path d="M27 34H81V36H27Z" fill="'+band+'"/>';
+    if(p.hat==='beanie')s+='<path d="M29 33Q29 11 50 11Q71 11 71 33Z" fill="'+hc+'"/><rect x="28" y="27" width="44" height="8" rx="3" fill="'+band+'"/><circle cx="50" cy="9" r="4.5" fill="'+hc+'"/>';
+    if(p.hat==='cowboy')s+='<path d="M35 30Q35 11 50 11Q65 11 65 30Z" fill="'+hc+'"/><ellipse cx="50" cy="30" rx="31" ry="6" fill="'+hc+'"/><rect x="35" y="24" width="30" height="4" fill="'+band+'"/>';
+    if(p.hat==='chef')s+='<circle cx="37" cy="17" r="8" fill="#fff"/><circle cx="50" cy="12" r="9" fill="#fff"/><circle cx="63" cy="17" r="8" fill="#fff"/><rect x="36" y="18" width="28" height="13" fill="#fff"/><rect x="36" y="27" width="28" height="3" fill="rgba(0,0,0,.12)"/>';
+    if(p.hat==='tophat')s+='<rect x="35" y="4" width="30" height="24" rx="2" fill="'+hc+'"/><rect x="35" y="21" width="30" height="5" fill="#c23b3b"/><ellipse cx="50" cy="29" rx="25" ry="4.5" fill="'+hc+'"/>';
+  }
+  if(p.beard===1)s+='<path d="M31 46Q31 68 50 69Q69 68 69 46Q65 57 50 57Q35 57 31 46Z" fill="'+hr+'"/>';
+  if(p.beard===2)s+='<path d="M32 47Q33 64 50 66Q67 64 68 47Q64 56 50 56Q36 56 32 47Z" fill="'+hr+'" opacity=".55"/>';
+  if(p.stache===1)s+='<path d="M40 53Q50 47 60 53Q50 56 40 53Z" fill="'+hr+'"/>';
+  if(p.stache===2)s+='<path d="M42 53Q50 50 58 53Q50 54.6 42 53Z" fill="'+hr+'" opacity=".8"/>';
+  /* eyes */
+  if(p.glasses===2){
+    s+='<rect x="32" y="37" width="16" height="10" rx="4.5" fill="#101018"/><rect x="52" y="37" width="16" height="10" rx="4.5" fill="#101018"/><path d="M48 40H52" stroke="#101018" stroke-width="2.2"/><path d="M35 39.5L40 39.5M55 39.5L60 39.5" stroke="rgba(255,255,255,.55)" stroke-width="1.6" stroke-linecap="round"/>';
+  }else if(p.funny){
+    s+='<circle cx="42" cy="43" r="5.2" fill="#fff" stroke="'+E+'" stroke-width="1"/><circle cx="58" cy="43" r="5.2" fill="#fff" stroke="'+E+'" stroke-width="1"/><circle cx="44.2" cy="44" r="2.3" fill="'+E+'"/><circle cx="55.8" cy="44" r="2.3" fill="'+E+'"/>';
+    s+='<path d="M35 34Q42 28 48 33M52 33Q58 28 65 34" stroke="'+hr+'" stroke-width="2.6" fill="none" stroke-linecap="round"/>';
+  }else if(p.sleepy){
+    [42,58].forEach(function(cx){s+='<circle cx="'+cx+'" cy="44" r="2.2" fill="'+E+'"/><rect x="'+(cx-4)+'" y="39" width="8" height="5" fill="'+sk+'"/><path d="M'+(cx-4)+' 44H'+(cx+4)+'" stroke="'+E+'" stroke-width="1.8" stroke-linecap="round"/><path d="M'+(cx-3.5)+' 48Q'+cx+' 50.5 '+(cx+3.5)+' 48" stroke="rgba(0,0,0,.28)" stroke-width="1.2" fill="none"/>'});
+    s+='<path d="M70 12h9l-9 9h9" stroke="#4a4590" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>';
+  }else{
+    var er=small?2.8:2;
+    s+='<circle cx="42" cy="43" r="'+er+'" fill="'+E+'"/><circle cx="58" cy="43" r="'+er+'" fill="'+E+'"/>';
+    if(small)s+='<circle cx="43" cy="42" r=".9" fill="#fff"/><circle cx="59" cy="42" r=".9" fill="#fff"/>';
+  }
+  if(p.w&&!p.glasses)s+='<path d="M38.5 41.5L36 39.5M61.5 41.5L64 39.5" stroke="'+E+'" stroke-width="1.5" stroke-linecap="round"/>';
+  if(p.glasses===1)s+='<g fill="rgba(255,255,255,.25)" stroke="#1d1d26" stroke-width="2"><circle cx="42" cy="43" r="6.5"/><circle cx="58" cy="43" r="6.5"/><path d="M48.5 43H51.5" fill="none"/></g>';
+  /* mouth */
+  var mc=p.w?'#c23a63':'#2a1a14';
+  if(p.funny){
+    s+='<circle cx="50" cy="49" r="4" fill="#ff4f5e"/><path d="M38 54Q50 75 62 54Z" fill="#7a1f2b"/><path d="M40 55H60" stroke="#fff" stroke-width="2.6"/><ellipse cx="50" cy="64" rx="6" ry="3.6" fill="#ff6b8a"/>';
+  }else if(p.pac){
+    s+='<circle cx="50" cy="56" r="4.6" fill="#ff8fb1"/><circle cx="50" cy="56" r="1.6" fill="#fff" opacity=".7"/><path d="M45 61Q50 65 55 61" stroke="#ff8fb1" stroke-width="2" fill="none" stroke-linecap="round"/>';
+  }else if(p.sleepy){
+    s+='<path d="M46 56H54" stroke="'+mc+'" stroke-width="1.8" stroke-linecap="round"/>';
+  }else if(p.beard===1){
+    s+='<path d="M45 56Q50 58 55 56" stroke="'+sk+'" stroke-width="1.8" fill="none" stroke-linecap="round"/>';
+  }else{
+    s+='<path d="M44 55Q50 59 56 55" stroke="'+mc+'" stroke-width="'+(p.w?2.4:1.8)+'" fill="none" stroke-linecap="round"/>';
+  }
+  if(p.flower)s+='<g transform="translate(66 25)"><g fill="#ff5fa2"><circle cx="0" cy="-4.5" r="3.2"/><circle cx="4.3" cy="-1.4" r="3.2"/><circle cx="2.6" cy="3.6" r="3.2"/><circle cx="-2.6" cy="3.6" r="3.2"/><circle cx="-4.3" cy="-1.4" r="3.2"/></g><circle r="2.3" fill="#ffd23f"/></g>';
+  if(p.rich)s+='<path d="M80 12L82 20L90 22L82 24L80 32L78 24L70 22L78 20Z" fill="#ffcf3f"/>';
+  s+='</g></svg>';
+  return s;
+}
+function faceHTML(i){var p=P[i];return '<span class="face front">'+avatar(p,i)+'<span class="nm">'+p.s+'</span></span>'}
+function bigCard(el,i){el.innerHTML=faceHTML(i);el.firstChild.style.position='absolute'}
+
+var S={order:[],names:['Player 1','Player 2'],scores:[0,0],secret:[-1,-1],down:[new Set(),new Set()],used:[{},{}],last:['',''],turn:0,asked:false,guess:false,pending:-1,pickP:0,pickSel:-1,passNext:null,played:false,replyQ:null};
+
+function show(id){['home','pass','pick','game','result'].forEach(function(s){$('#'+s).hidden=(s!==id)})}
+function orient(p){document.body.classList.toggle('flip',p===1)}
+function ov(id,on,p){var e=$('#'+id);if(p!==undefined){e.setAttribute('data-p',p);if(on)orient(p)}e.hidden=!on}
+function setP(p){['pass','pick','game','result'].forEach(function(id){$('#'+id).setAttribute('data-p',p)})}
+
+function buildBoard(el,onTap,downSet){
+  el.innerHTML='';
+  S.order.forEach(function(i){
+    var p=P[i];
+    var b=document.createElement('button');
+    b.className='card'+(downSet&&downSet.has(i)?' down':'');
+    b.setAttribute('aria-label',p.n);
+    b.innerHTML='<span class="inner">'+faceHTML(i)+'<span class="face back"><b>?</b></span></span>';
+    b.addEventListener('click',function(){onTap(i,b)});
+    el.appendChild(b);
+  });
+}
+
+function passTo(p,msg,next){
+  orient(null);setP(p);
+  $('#pass-name').textContent=S.names[p];
+  $('#pass-msg').textContent=msg;
+  $('#pass-go').textContent='I’m '+S.names[p];
+  S.passNext=next;
+  show('pass');
+}
+$('#pass-go').addEventListener('click',function(){if(S.passNext)S.passNext()});
+
+function shuffle(a){for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t}return a}
+function startRound(){
+  S.order=shuffle(P.map(function(_,i){return i}));
+  S.secret=[-1,-1];S.down=[new Set(),new Set()];S.used=[{},{}];S.last=['',''];S.turn=0;S.asked=false;S.guess=false;
+  passTo(0,'Pick your secret character. '+S.names[1]+', look away.',function(){openPick(0)});
+}
+function openPick(p){
+  S.pickP=p;S.pickSel=-1;orient(null);setP(p);
+  $('#pick-title').textContent=S.names[p]+', pick your character';
+  $('#lock').disabled=true;
+  buildBoard($('#pick-board'),function(i,b){
+    S.pickSel=i;
+    document.querySelectorAll('#pick-board .card').forEach(function(c){c.classList.remove('sel')});
+    b.classList.add('sel');$('#lock').disabled=false;
+  });
+  show('pick');
+}
+$('#lock').addEventListener('click',function(){
+  if(S.pickSel<0)return;
+  S.secret[S.pickP]=S.pickSel;
+  if(S.pickP===0)passTo(1,'Pick your secret character. '+S.names[0]+', look away.',function(){openPick(1)});
+  else passTo(0,'Both characters are locked in. Put the phone flat between you. You go first.',openGame);
+});
+
+function openGame(){
+  S.asked=false;S.guess=false;orient(S.turn);setP(S.turn);
+  buildBoard($('#board'),onBoardTap,S.down[S.turn]);
+  $('#board').classList.remove('guessing');
+  renderGame();show('game');
+}
+function renderGame(){
+  var p=S.turn,o=1-p;
+  for(var i=0;i<2;i++){$('#sn'+i).textContent=S.names[i];$('#ss'+i).textContent=S.scores[i];$('#sp'+i).classList.toggle('on',i===p)}
+  var left=P.length-S.down[p].size;
+  $('#turn-label').textContent=S.guess?'Tap your guess':S.names[p]+'’s turn · '+left+' left';
+  var l=S.last[p];
+  $('#clue').innerHTML='';
+  if(l){var q=Q.filter(function(x){return x.id===l})[0];var a=S.used[p][l];$('#clue').innerHTML='<b>'+(a?'Yes':'No')+'</b> · '+q.t}
+  $('#ask').disabled=S.asked||S.guess;
+  $('#ask').textContent=S.asked?'Asked ✓':'Ask a question';
+  $('#guess').textContent=S.guess?'Keep flipping':'Guess now';
+  $('#end').classList.toggle('pulse',S.asked&&!S.guess);
+  $('#board').classList.toggle('guessing',S.guess);
+}
+function onBoardTap(i,b){
+  var p=S.turn;
+  if(S.guess){
+    if(S.down[p].has(i))return;
+    S.pending=i;
+    bigCard($('#cf-card'),i);
+    $('#cf-name').textContent=P[i].n;
+    ov('ov-confirm',true,p);
+    return;
+  }
+  if(S.down[p].has(i)){S.down[p].delete(i);b.classList.remove('down')}
+  else{S.down[p].add(i);b.classList.add('down')}
+  renderGame();
+}
+$('#guess').addEventListener('click',function(){S.guess=!S.guess;renderGame()});
+$('#cf-no').addEventListener('click',function(){ov('ov-confirm',false)});
+$('#cf-yes').addEventListener('click',function(){
+  ov('ov-confirm',false);
+  var p=S.turn,hit=(S.pending===S.secret[1-p]);
+  finish(hit?p:1-p,hit,S.pending);
+});
+$('#mine').addEventListener('click',function(){
+  bigCard($('#mine-card'),S.secret[S.turn]);
+  ov('ov-mine',true,S.turn);
+});
+$('#mine-close').addEventListener('click',function(){ov('ov-mine',false)});
+$('#end').addEventListener('click',function(){
+  S.turn=1-S.turn;
+  openGame();
+});
+
+/* Ask */
+$('#ask').addEventListener('click',function(){
+  var p=S.turn,wrap=$('#qlist');wrap.innerHTML='';
+  var cats=[];Q.forEach(function(q){if(cats.indexOf(q.cat)<0)cats.push(q.cat)});
+  cats.forEach(function(c){
+    var d=document.createElement('div');d.className='cat';
+    d.innerHTML='<div class="eyebrow">'+c+'</div><div class="chips"></div>';
+    var chips=d.querySelector('.chips');
+    Q.filter(function(q){return q.cat===c}).forEach(function(q){
+      var b=document.createElement('button');b.className='chip';
+      var used=Object.prototype.hasOwnProperty.call(S.used[p],q.id);
+      b.textContent=q.t;
+      if(used){b.classList.add('used',S.used[p][q.id]?'yes':'no');b.disabled=true;b.insertAdjacentHTML('beforeend','<em>'+(S.used[p][q.id]?'YES':'NO')+'</em>')}
+      b.addEventListener('click',function(){ask(q)});
+      chips.appendChild(b);
+    });
+    wrap.appendChild(d);
+  });
+  ov('ov-ask',true,p);
+});
+$('#ask-close').addEventListener('click',function(){ov('ov-ask',false)});
+function ask(q){
+  var p=S.turn,o=1-p;
+  S.asked=true;S.replyQ=q;ov('ov-ask',false);
+  $('#rp-from').textContent=S.names[p]+' asks';
+  $('#rp-q').textContent=q.t;
+  ov('ov-reply',true,o);
+}
+function reply(a){
+  var p=S.turn,q=S.replyQ;
+  ov('ov-reply',false);
+  S.used[p][q.id]=a;S.last[p]=q.id;
+  var v=$('#ans-v');v.textContent=a?'Yes':'No';v.className='verdict '+(a?'yes':'no');
+  $('#ans-from').textContent=S.names[1-p]+' says';
+  $('#ans-q').textContent=q.t;
+  ov('ov-answer',true,p);
+  renderGame();
+  try{navigator.vibrate&&navigator.vibrate(a?[30]:[30,60,30])}catch(e){}
+}
+$('#rp-yes').addEventListener('click',function(){reply(true)});
+$('#rp-no').addEventListener('click',function(){reply(false)});
+$('#ans-keep').addEventListener('click',function(){ov('ov-answer',false);renderGame()});
+
+/* Finish */
+function finish(winner,hit,guessIdx){
+  var p=S.turn,target=S.secret[1-p];
+  S.scores[winner]++;S.played=true;
+  setP(winner);
+  $('#res-eyebrow').textContent=hit?'Great guess':'Wrong guess';
+  $('#res-title').textContent=S.names[winner]+' wins';
+  bigCard($('#res-card'),target);
+  $('#res-text').textContent=hit
+    ?S.names[p]+' found '+P[target].n+'. Score is '+S.names[0]+' '+S.scores[0]+', '+S.names[1]+' '+S.scores[1]+'.'
+    :S.names[p]+' guessed '+P[guessIdx].n+', but it was '+P[target].n+'. Score is '+S.names[0]+' '+S.scores[0]+', '+S.names[1]+' '+S.scores[1]+'.';
+  orient(null);show('result');
+  confetti(winner);
+}
+function confetti(w){
+  var cols=[w?'var(--p2)':'var(--p1)','var(--yellow)','var(--chalk)'];
+  for(var i=0;i<34;i++){
+    var d=document.createElement('i');d.className='confetti';
+    d.style.left=Math.random()*100+'vw';d.style.background=cols[i%3];
+    d.style.animationDuration=(1.6+Math.random()*1.6)+'s';d.style.animationDelay=Math.random()*.5+'s';
+    document.body.appendChild(d);
+    setTimeout(function(e){e.remove()},4000,d);
+  }
+}
+$('#again').addEventListener('click',startRound);
+$('#home-btn').addEventListener('click',goHome);
+
+/* Home */
+function esc(s){return s.replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function goHome(){
+  var t=$('#tally');
+  if(S.played){t.hidden=false;t.innerHTML='<span>'+esc(S.names[0])+' '+S.scores[0]+'</span><small>VS</small><span>'+S.scores[1]+' '+esc(S.names[1])+'</span>'}
+  else t.hidden=true;
+  $('#n0').value=S.names[0];$('#n1').value=S.names[1];
+  orient(null);show('home');
+}
+$('#kick').addEventListener('click',function(){
+  var a=$('#n0').value.trim()||'Player 1',b=$('#n1').value.trim()||'Player 2';
+  if(b.toLowerCase()===a.toLowerCase())b=b+' 2';
+  if(a!==S.names[0]||b!==S.names[1]){S.scores=[0,0];S.played=false}
+  S.names=[a,b];
+  startRound();
+});
+show('home');
+})();
+</script>
+
+
+<script>
+if('serviceWorker' in navigator){ addEventListener('load',function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); }); }
+</script>
+</body>
+</html>
